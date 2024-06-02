@@ -69,7 +69,7 @@ func New() backend.Backend {
 					"project": {
 						Type:        cty.String,
 						Optional:    true,
-						Description: "The ID of the Google Cloud project to use for authentication",
+						Description: "The ID of the Google Cloud project",
 					},
 
 					"credentials": {
@@ -319,12 +319,11 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 		b.kmsKeyName = kmsName
 	}
 
-	// Check if the bucket exists
-	// If the bucket does not exist, we will create it
+	// Check if the bucket exists, otherwise create it
 	bucket := client.Bucket(b.bucketName)
 	if _, err := bucket.Attrs(ctx); err != nil {
 		if err == storage.ErrBucketNotExist {
-			// Create the bucket if it doesn't exist
+			// Bucket does not exist, create it
 			bucketAttrs := &storage.BucketAttrs{
 				Name:              b.bucketName,
 				Location:          b.bucketLocation,
@@ -332,12 +331,12 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 			}
 			if err := bucket.Create(ctx, b.project, bucketAttrs); err != nil {
 				return backendbase.ErrorAsDiagnostics(
-					fmt.Errorf("Error creating bucket: %v", err),
+					fmt.Errorf("Error Bucket.Create() failed: %v", err),
 				)
 			}
 		} else {
 			return backendbase.ErrorAsDiagnostics(
-				fmt.Errorf("Error checking whether bucket exists: %v", err),
+				fmt.Errorf("Error checking if bucket exists: %v", err),
 			)
 		}
 	}
