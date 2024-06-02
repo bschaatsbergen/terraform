@@ -6,6 +6,7 @@ package s3
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -16,7 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	ddbtypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	awsbase "github.com/hashicorp/aws-sdk-go-base/v2"
 	baselogging "github.com/hashicorp/aws-sdk-go-base/v2/logging"
 	"github.com/hashicorp/aws-sdk-go-base/v2/validation"
@@ -1259,6 +1263,86 @@ func (b *Backend) Configure(obj cty.Value) tfdiags.Diagnostics {
 				opts.UsePathStyle = v
 			}
 		})
+
+	// Check if the S3 bucket exists
+	_, err = b.s3Client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(b.bucketName),
+	})
+
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if _, ok := apiErr.(*s3types.NotFound); ok {
+				// Bucket does not exist, create it
+				_, err := b.s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
+					Bucket: aws.String(b.bucketName),
+					CreateBucketConfiguration: &s3types.CreateBucketConfiguration{
+						LocationConstraint: s3types.BucketLocationConstraint(b.awsConfig.Region),
+					},
+				})
+				if err != nil {
+					// Error handling for bucket creation failure
+					fmt.Printf("Error creating bucket: %v\n", err)
+					return diags
+				}
+
+				// Enable versioning for the newly created bucket
+				_, err = b.s3Client.PutBucketVersioning(ctx, &s3.PutBucketVersioningInput{
+					Bucket: aws.String(b.bucketName),
+					VersioningConfiguration: &s3types.VersioningConfiguration{
+						Status: s3types.BucketVersioningStatusEnabled,
+					},
+				})
+				if err != nil {
+					fmt.Printf("Error enabling versioning: %v\n", err)
+					return diags
+				}
+			} else {
+				fmt.Printf("Error checking bucket: %v\n", err)
+				return diags
+			}
+		}
+	}
+
+	// Check if the DynamoDB table exists
+	_, err = b.dynClient.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(b.ddbTable),
+	})
+
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if _, ok := apiErr.(*ddbtypes.ResourceNotFoundException); ok {
+				// Table does not exist, create it
+				_, err := b.dynClient.CreateTable(ctx, &dynamodb.CreateTableInput{
+					AttributeDefinitions: []ddbtypes.AttributeDefinition{
+						{
+							AttributeName: aws.String("LockID"),
+							AttributeType: ddbtypes.ScalarAttributeTypeS,
+						},
+					},
+					KeySchema: []ddbtypes.KeySchemaElement{
+						{
+							AttributeName: aws.String("LockID"),
+							KeyType:       ddbtypes.KeyTypeHash,
+						},
+					},
+					ProvisionedThroughput: &ddbtypes.ProvisionedThroughput{
+						ReadCapacityUnits:  aws.Int64(20),
+						WriteCapacityUnits: aws.Int64(20),
+					},
+					TableName: aws.String(b.ddbTable),
+				})
+				if err != nil {
+					fmt.Printf("Error creating DynamoDB table: %v\n", err)
+					return diags
+				}
+			} else {
+				fmt.Printf("Error checking if DynamoDB table exists: %v\n", err)
+				return diags
+			}
+		}
+	}
 
 	return diags
 }
