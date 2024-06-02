@@ -33,8 +33,11 @@ type Backend struct {
 
 	storageClient *storage.Client
 
-	bucketName string
-	prefix     string
+	bucketName     string
+	bucketLocation string
+	prefix         string
+
+	project string
 
 	encryptionKey []byte
 	kmsKeyName    string
@@ -51,10 +54,22 @@ func New() backend.Backend {
 						Description: "The name of the Google Cloud Storage bucket",
 					},
 
+					"location": {
+						Type:        cty.String,
+						Optional:    true,
+						Description: "The location of the Google Cloud Storage bucket",
+					},
+
 					"prefix": {
 						Type:        cty.String,
 						Optional:    true,
 						Description: "The directory where state files will be saved inside the bucket",
+					},
+
+					"project": {
+						Type:        cty.String,
+						Optional:    true,
+						Description: "The ID of the Google Cloud project to use for authentication",
 					},
 
 					"credentials": {
@@ -108,6 +123,12 @@ func New() backend.Backend {
 				},
 				"access_token": {
 					EnvVars: []string{"GOOGLE_OAUTH_ACCESS_TOKEN"},
+				},
+				"project": {
+					EnvVars: []string{"GOOGLE_PROJECT"},
+				},
+				"location": {
+					EnvVars: []string{"GOOGLE_LOCATION"},
 				},
 				"impersonate_service_account": {
 					EnvVars: []string{
@@ -166,6 +187,14 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 	b.prefix = strings.TrimLeft(data.String("prefix"), "/")
 	if b.prefix != "" && !strings.HasSuffix(b.prefix, "/") {
 		b.prefix = b.prefix + "/"
+	}
+
+	if v := data.String("project"); v != "" {
+		b.project = v
+	}
+
+	if v := data.String("location"); v != "" {
+		b.bucketLocation = v
 	}
 
 	var opts []option.ClientOption
@@ -288,6 +317,29 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 	kmsName := data.String("kms_encryption_key")
 	if kmsName != "" {
 		b.kmsKeyName = kmsName
+	}
+
+	// Check if the bucket exists
+	// If the bucket does not exist, we will create it
+	bucket := client.Bucket(b.bucketName)
+	if _, err := bucket.Attrs(ctx); err != nil {
+		if err == storage.ErrBucketNotExist {
+			// Create the bucket if it doesn't exist
+			bucketAttrs := &storage.BucketAttrs{
+				Name:              b.bucketName,
+				Location:          b.bucketLocation,
+				VersioningEnabled: true,
+			}
+			if err := bucket.Create(ctx, b.project, bucketAttrs); err != nil {
+				return backendbase.ErrorAsDiagnostics(
+					fmt.Errorf("Error creating bucket: %v", err),
+				)
+			}
+		} else {
+			return backendbase.ErrorAsDiagnostics(
+				fmt.Errorf("Error checking whether bucket exists: %v", err),
+			)
+		}
 	}
 
 	return nil
