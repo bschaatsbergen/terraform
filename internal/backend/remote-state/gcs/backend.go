@@ -125,10 +125,10 @@ func New() backend.Backend {
 					EnvVars: []string{"GOOGLE_OAUTH_ACCESS_TOKEN"},
 				},
 				"project": {
-					EnvVars: []string{"GOOGLE_PROJECT"},
+					EnvVars: []string{"GOOGLE_BACKEND_PROJECT"},
 				},
 				"location": {
-					EnvVars: []string{"GOOGLE_LOCATION"},
+					EnvVars: []string{"GOOGLE_BACKEND_LOCATION"},
 				},
 				"impersonate_service_account": {
 					EnvVars: []string{
@@ -191,9 +191,13 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 
 	if v := data.String("project"); v != "" {
 		b.project = v
+	} else if v := os.Getenv("GOOGLE_BACKEND_PROJECT"); v != "" {
+		b.project = v
 	}
 
 	if v := data.String("location"); v != "" {
+		b.bucketLocation = v
+	} else if v := os.Getenv("GOOGLE_BACKEND_LOCATION"); v != "" {
 		b.bucketLocation = v
 	}
 
@@ -321,22 +325,37 @@ func (b *Backend) Configure(configVal cty.Value) tfdiags.Diagnostics {
 
 	// Check if the bucket exists, otherwise create it
 	bucket := client.Bucket(b.bucketName)
+
+	// Attempt to get bucket attributes to check if it exists
 	if _, err := bucket.Attrs(ctx); err != nil {
 		if err == storage.ErrBucketNotExist {
 			// Bucket does not exist, create it
+			// Ensure required attributes are set
+			if b.bucketLocation == "" {
+				return backendbase.ErrorAsDiagnostics(
+					fmt.Errorf("`location` or `GOOGLE_BACKEND_LOCATION` must be set for Terraform to create the bucket"),
+				)
+			}
+			if b.project == "" {
+				return backendbase.ErrorAsDiagnostics(
+					fmt.Errorf("`project` or `GOOGLE_BACKEND_PROJECT` must be set for Terraform to create the bucket"),
+				)
+			}
+
 			bucketAttrs := &storage.BucketAttrs{
 				Name:              b.bucketName,
 				Location:          b.bucketLocation,
 				VersioningEnabled: true,
 			}
+
 			if err := bucket.Create(ctx, b.project, bucketAttrs); err != nil {
 				return backendbase.ErrorAsDiagnostics(
-					fmt.Errorf("Error Bucket.Create() failed: %v", err),
+					fmt.Errorf("Bucket.Create() failed: %v", err),
 				)
 			}
 		} else {
 			return backendbase.ErrorAsDiagnostics(
-				fmt.Errorf("Error checking if bucket exists: %v", err),
+				fmt.Errorf("Unable to verify the presence of the bucket: %v", err),
 			)
 		}
 	}
