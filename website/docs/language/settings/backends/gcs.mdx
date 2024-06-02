@@ -7,8 +7,7 @@ description: >-
 
 # gcs
 
-Stores the state as an object in a configurable prefix in a pre-existing bucket on [Google Cloud Storage](https://cloud.google.com/storage/) (GCS).
-The bucket must exist prior to configuring the backend.
+The state is stored as an object under a configurable prefix in a [Google Cloud Storage](https://cloud.google.com/storage/) (GCS) bucket. The `bucket` argument is required and specifies the GCS bucket where the state file will be stored. If the bucket does not exist, Terraform will attempt to create it. This operation requires the `location` and `project` arguments to be set. For more information, see [Google Cloud Storage IAM roles](https://cloud.google.com/storage/docs/access-control/iam-roles).
 
 This backend supports [state locking](/terraform/language/state/locking).
 
@@ -23,6 +22,19 @@ terraform {
   backend "gcs" {
     bucket  = "tf-state-prod"
     prefix  = "terraform/state"
+  }
+}
+```
+
+## Creating the GCS bucket with Terraform
+
+```hcl
+terraform {
+  backend "gcs" {
+    bucket  = "tf-state-prod"
+    prefix  = "terraform/state"
+    project = "my-project-id"
+    location = "US"
   }
 }
 ```
@@ -108,8 +120,8 @@ The following configuration options are supported:
 - `bucket` - (Required) The name of the GCS bucket.  This name must be
   globally unique.  For more information, see [Bucket Naming
   Guidelines](https://cloud.google.com/storage/docs/bucketnaming.html#requirements).
-- `project` - (Optional) The ID of the Google Cloud project where the GCS bucket should be created. Required only if you are using Terraform to create the GCS bucket.
-- `location` - (Optional) The location of the GCS bucket. Required only if you are using Terraform to create the GCS bucket. See [Bucket locations](https://cloud.google.com/storage/docs/locations) for valid values.
+- `project` / `GOOGLE_BACKEND_PROJECT` - (Optional) The ID of the Google Cloud project where the GCS bucket should be created. Required only if you are using Terraform to create the GCS bucket.
+- `location` / `GOOGLE_BACKEND_LOCATION` - (Optional) The location of the GCS bucket. Required only if you are using Terraform to create the GCS bucket. See [Bucket locations](https://cloud.google.com/storage/docs/locations) for valid values.
 - `credentials` / `GOOGLE_BACKEND_CREDENTIALS` / `GOOGLE_CREDENTIALS` -
   (Optional) Local path to Google Cloud Platform account credentials in JSON
   format. If unset, the path uses [Google Application Default Credentials](https://developers.google.com/identity/protocols/application-default-credentials).  The provided credentials must have the Storage Object Admin role on the bucket.
