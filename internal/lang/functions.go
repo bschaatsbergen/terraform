@@ -165,6 +165,7 @@ func (s *Scope) Functions() map[string]function.Function {
 			"tolist":           funcs.MakeToFunc(cty.List(cty.DynamicPseudoType)),
 			"tomap":            funcs.MakeToFunc(cty.Map(cty.DynamicPseudoType)),
 			"transpose":        funcs.TransposeFunc,
+			"transposelist":    funcs.TransposeListFunc,
 			"trim":             stdlib.TrimFunc,
 			"trimprefix":       stdlib.TrimPrefixFunc,
 			"trimspace":        stdlib.TrimSpaceFunc,

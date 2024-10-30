@@ -1084,6 +1084,25 @@ func TestFunctions(t *testing.T) {
 			},
 		},
 
+		"transposelist": {
+			{
+				`transposelist([["a1", "a2", "a3"], ["b1", "b2", "b3"], ["c1", "c2", "c3"]])`,
+				cty.ListVal([]cty.Value{
+					cty.ListVal([]cty.Value{cty.StringVal("a1"), cty.StringVal("b1"), cty.StringVal("c1")}),
+					cty.ListVal([]cty.Value{cty.StringVal("a2"), cty.StringVal("b2"), cty.StringVal("c2")}),
+					cty.ListVal([]cty.Value{cty.StringVal("a3"), cty.StringVal("b3"), cty.StringVal("c3")}),
+				}),
+			},
+			{
+				`transposelist([[1, 2, 3], [4, 5, 6]])`,
+				cty.ListVal([]cty.Value{
+					cty.ListVal([]cty.Value{cty.StringVal("1"), cty.StringVal("4")}),
+					cty.ListVal([]cty.Value{cty.StringVal("2"), cty.StringVal("5")}),
+					cty.ListVal([]cty.Value{cty.StringVal("3"), cty.StringVal("6")}),
+				}),
+			},
+		},
+
 		"trim": {
 			{
 				`trim("?!hello?!", "!?")`,

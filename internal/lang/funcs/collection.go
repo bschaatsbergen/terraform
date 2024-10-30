@@ -611,6 +611,43 @@ var TransposeFunc = function.New(&function.Spec{
 	},
 })
 
+var TransposeListFunc = function.New(&function.Spec{
+	Params: []function.Parameter{{Name: "values", Type: cty.List(cty.List(cty.String))}},
+	Type:   function.StaticReturnType(cty.List(cty.List(cty.String))),
+	Impl: func(args []cty.Value, retType cty.Type) (cty.Value, error) {
+		if !args[0].IsWhollyKnown() {
+			return cty.UnknownVal(retType), nil
+		}
+		inputList := args[0].AsValueSlice()
+		if len(inputList) == 0 {
+			return cty.ListValEmpty(cty.List(cty.String)), nil
+		}
+		rows := len(inputList)
+		cols := len(inputList[0].AsValueSlice())
+		transposed := make([][]cty.Value, cols)
+		for i := range transposed {
+			transposed[i] = make([]cty.Value, rows)
+		}
+		for i, row := range inputList {
+			rowValues := row.AsValueSlice()
+			if len(rowValues) != cols {
+				return cty.NilVal, errors.New("all inner lists must have the same length")
+			}
+			for j, val := range rowValues {
+				if !val.Type().Equals(cty.String) {
+					return cty.NilVal, errors.New("all elements must be strings")
+				}
+				transposed[j][i] = val
+			}
+		}
+		transposedCty := make([]cty.Value, cols)
+		for i, row := range transposed {
+			transposedCty[i] = cty.ListVal(row)
+		}
+		return cty.ListVal(transposedCty), nil
+	},
+})
+
 // ListFunc constructs a function that takes an arbitrary number of arguments
 // and returns a list containing those values in the same order.
 //
