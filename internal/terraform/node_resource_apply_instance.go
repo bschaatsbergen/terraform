@@ -387,7 +387,6 @@ func (n *NodeApplyableResourceInstance) managedResourceExecute(ctx EvalContext) 
 }
 
 func (n *NodeApplyableResourceInstance) managedResourcePostconditions(ctx EvalContext, repeatData instances.RepetitionData) (diags tfdiags.Diagnostics) {
-
 	checkDiags := evalCheckRules(
 		addrs.ResourcePostcondition,
 		n.Config.Postconditions,
