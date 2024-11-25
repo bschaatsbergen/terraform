@@ -202,13 +202,12 @@ func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContex
 		checkRuleMessage = "This check failed, but has an invalid error message as described in the other accompanying messages."
 	}
 
-	// Because the caller gets to choose the severity, because we
-	// treat condition failures as warnings in the presence of
-	// certain special planning options.
+	// Because of specific planning options, condition failures that are supposed to be errors
+	// might be treated as warnings instead, depending on the severity passed into this function.
 	if severity == hcl.DiagError {
+		// However, to respect the severity of the check rule configured by the user,
+		// we can downgrade the diagnostic severity if the check rule severity is a warning.
 		if checkRuleSeverity == hcl.DiagWarning {
-			// The caller chose to treat the check rule as a warning,
-			// so we will downgrade the severity accordingly.
 			severity = hcl.DiagWarning
 		}
 	}
