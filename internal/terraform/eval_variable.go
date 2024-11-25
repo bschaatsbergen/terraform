@@ -253,10 +253,13 @@ func evalVariableValidations(addr addrs.AbsInputVariableInstance, ctx EvalContex
 	for _, rule := range rules {
 		condRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.Condition)
 		diags = diags.Append(moreDiags)
-		msgRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+		errRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+		diags = diags.Append(moreDiags)
+		warnRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.WarningMessage)
 		diags = diags.Append(moreDiags)
 		refs = append(refs, condRefs...)
-		refs = append(refs, msgRefs...)
+		refs = append(refs, errRefs...)
+		refs = append(refs, warnRefs...)
 	}
 	if diags.HasErrors() {
 		// If any of the references were invalid then evaluating the expressions

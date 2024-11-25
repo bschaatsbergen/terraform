@@ -74,9 +74,12 @@ func validateCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalCo
 
 	refs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.Condition)
 	diags = diags.Append(moreDiags)
-	moreRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
-	diags = diags.Append(moreDiags)
-	refs = append(refs, moreRefs...)
+	errRefs, errDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+	diags = diags.Append(errDiags)
+	refs = append(refs, errRefs...)
+	warnRefs, warnDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+	diags = diags.Append(warnDiags)
+	refs = append(refs, warnRefs...)
 
 	var selfReference, sourceReference addrs.Referenceable
 	switch addr.Type {
