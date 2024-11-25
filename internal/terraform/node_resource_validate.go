@@ -527,20 +527,32 @@ func (n *NodeValidatableResource) validateCheckRules(ctx EvalContext, config *co
 
 	keyData, selfAddr := n.stubRepetitionData(n.Config.Count != nil, n.Config.ForEach != nil)
 
+	var conditionDiags tfdiags.Diagnostics
+	var errorMessageDiags tfdiags.Diagnostics
 	for _, cr := range config.Preconditions {
-		_, conditionDiags := n.evaluateExpr(ctx, cr.Condition, cty.Bool, nil, keyData)
+		_, conditionDiags = n.evaluateExpr(ctx, cr.Condition, cty.Bool, nil, keyData)
 		diags = diags.Append(conditionDiags)
 
-		_, errorMessageDiags := n.evaluateExpr(ctx, cr.ErrorMessage, cty.Bool, nil, keyData)
-		diags = diags.Append(errorMessageDiags)
+		if cr.ErrorMessage != nil {
+			_, errorMessageDiags = n.evaluateExpr(ctx, cr.ErrorMessage, cty.Bool, nil, keyData)
+			diags = diags.Append(errorMessageDiags)
+		} else if cr.WarningMessage != nil {
+			_, errorMessageDiags = n.evaluateExpr(ctx, cr.WarningMessage, cty.Bool, nil, keyData)
+			diags = diags.Append(errorMessageDiags)
+		}
 	}
 
 	for _, cr := range config.Postconditions {
-		_, conditionDiags := n.evaluateExpr(ctx, cr.Condition, cty.Bool, selfAddr, keyData)
+		_, conditionDiags = n.evaluateExpr(ctx, cr.Condition, cty.Bool, selfAddr, keyData)
 		diags = diags.Append(conditionDiags)
 
-		_, errorMessageDiags := n.evaluateExpr(ctx, cr.ErrorMessage, cty.Bool, selfAddr, keyData)
-		diags = diags.Append(errorMessageDiags)
+		if cr.ErrorMessage != nil {
+			_, errorMessageDiags = n.evaluateExpr(ctx, cr.ErrorMessage, cty.Bool, selfAddr, keyData)
+			diags = diags.Append(errorMessageDiags)
+		} else if cr.WarningMessage != nil {
+			_, errorMessageDiags = n.evaluateExpr(ctx, cr.WarningMessage, cty.Bool, selfAddr, keyData)
+			diags = diags.Append(errorMessageDiags)
+		}
 	}
 
 	return diags
