@@ -106,21 +106,21 @@ func validateCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalCo
 	hclCtx, moreDiags := scope.EvalContext(refs)
 	diags = diags.Append(moreDiags)
 
-	var message string
-	var severity hcl.DiagnosticSeverity
+	var checkRuleMessage string
+	var checkRuleSeverity hcl.DiagnosticSeverity
 	if rule.ErrorMessage != nil {
 		errorMessage, moreDiags := lang.EvalCheckErrorMessage(rule.ErrorMessage, hclCtx, &addr)
 		diags = diags.Append(moreDiags)
-		message = errorMessage
-		severity = hcl.DiagError
+		checkRuleMessage = errorMessage
+		checkRuleSeverity = hcl.DiagError
 	} else if rule.WarningMessage != nil {
 		warningMessage, moreDiags := lang.EvalCheckWarningMessage(rule.WarningMessage, hclCtx, &addr)
 		diags = diags.Append(moreDiags)
-		message = warningMessage
-		severity = hcl.DiagWarning
+		checkRuleMessage = warningMessage
+		checkRuleSeverity = hcl.DiagWarning
 	}
 
-	return message, severity, hclCtx, diags
+	return checkRuleMessage, checkRuleSeverity, hclCtx, diags
 }
 
 func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContext, keyData instances.RepetitionData, severity hcl.DiagnosticSeverity) (checkResult, tfdiags.Diagnostics) {
