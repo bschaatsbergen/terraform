@@ -69,7 +69,7 @@ type checkResult struct {
 	FailureMessage string
 }
 
-func validateCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContext, keyData instances.RepetitionData) (string, *hcl.EvalContext, tfdiags.Diagnostics) {
+func validateCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContext, keyData instances.RepetitionData) (string, hcl.DiagnosticSeverity, *hcl.EvalContext, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 
 	refs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRef, rule.Condition)
@@ -103,17 +103,28 @@ func validateCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalCo
 	hclCtx, moreDiags := scope.EvalContext(refs)
 	diags = diags.Append(moreDiags)
 
-	errorMessage, moreDiags := lang.EvalCheckErrorMessage(rule.ErrorMessage, hclCtx, &addr)
-	diags = diags.Append(moreDiags)
+	var message string
+	var severity hcl.DiagnosticSeverity
+	if rule.ErrorMessage != nil {
+		errorMessage, moreDiags := lang.EvalCheckErrorMessage(rule.ErrorMessage, hclCtx, &addr)
+		diags = diags.Append(moreDiags)
+		message = errorMessage
+		severity = hcl.DiagError
+	} else if rule.WarningMessage != nil {
+		warningMessage, moreDiags := lang.EvalCheckWarningMessage(rule.WarningMessage, hclCtx, &addr)
+		diags = diags.Append(moreDiags)
+		message = warningMessage
+		severity = hcl.DiagWarning
+	}
 
-	return errorMessage, hclCtx, diags
+	return message, severity, hclCtx, diags
 }
 
 func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContext, keyData instances.RepetitionData, severity hcl.DiagnosticSeverity) (checkResult, tfdiags.Diagnostics) {
 	// NOTE: Intentionally not passing the caller's selected severity in here,
 	// because this reports errors in the configuration itself, not the failure
 	// of an otherwise-valid condition.
-	errorMessage, hclCtx, diags := validateCheckRule(addr, rule, ctx, keyData)
+	checkRuleMessage, checkRuleSeverity, hclCtx, diags := validateCheckRule(addr, rule, ctx, keyData)
 
 	const errInvalidCondition = "Invalid condition result"
 
@@ -187,17 +198,25 @@ func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContex
 		return checkResult{Status: status}, diags
 	}
 
-	errorMessageForDiags := errorMessage
-	if errorMessageForDiags == "" {
-		errorMessageForDiags = "This check failed, but has an invalid error message as described in the other accompanying messages."
+	if checkRuleMessage == "" {
+		checkRuleMessage = "This check failed, but has an invalid error message as described in the other accompanying messages."
 	}
+
+	// Because the caller gets to choose the severity, because we
+	// treat condition failures as warnings in the presence of
+	// certain special planning options.
+	if severity == hcl.DiagError {
+		if checkRuleSeverity == hcl.DiagWarning {
+			// The caller chose to treat the check rule as a warning,
+			// so we will downgrade the severity accordingly.
+			severity = hcl.DiagWarning
+		}
+	}
+
 	diags = diags.Append(&hcl.Diagnostic{
-		// The caller gets to choose the severity of this one, because we
-		// treat condition failures as warnings in the presence of
-		// certain special planning options.
 		Severity:    severity,
 		Summary:     fmt.Sprintf("%s failed", addr.Type.Description()),
-		Detail:      errorMessageForDiags,
+		Detail:      checkRuleMessage,
 		Subject:     rule.Condition.Range().Ptr(),
 		Expression:  rule.Condition,
 		EvalContext: hclCtx,
@@ -208,6 +227,6 @@ func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContex
 
 	return checkResult{
 		Status:         status,
-		FailureMessage: errorMessage,
+		FailureMessage: checkRuleMessage,
 	}, diags
 }

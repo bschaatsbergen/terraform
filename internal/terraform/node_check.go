@@ -180,7 +180,7 @@ func (n *nodeCheckAssert) Execute(ctx EvalContext, _ walkOperation) tfdiags.Diag
 	// diagnostics if references do not exist etc.
 	var diags tfdiags.Diagnostics
 	for ix, assert := range n.config.Asserts {
-		_, _, moreDiags := validateCheckRule(addrs.NewCheckRule(n.addr, addrs.CheckAssertion, ix), assert, ctx, EvalDataForNoInstanceKey)
+		_, _, _, moreDiags := validateCheckRule(addrs.NewCheckRule(n.addr, addrs.CheckAssertion, ix), assert, ctx, EvalDataForNoInstanceKey)
 		diags = diags.Append(moreDiags)
 	}
 	return diags
