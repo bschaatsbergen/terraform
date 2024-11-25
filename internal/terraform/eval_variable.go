@@ -331,7 +331,14 @@ func evalVariableValidation(validation *configs.CheckRule, hclCtx *hcl.EvalConte
 
 	result, moreDiags := validation.Condition.Value(hclCtx)
 	diags = diags.Append(moreDiags)
-	errorValue, errorDiags := validation.ErrorMessage.Value(hclCtx)
+
+	var errorValue cty.Value
+	var errorDiags hcl.Diagnostics
+	if validation.ErrorMessage != nil {
+		errorValue, errorDiags = validation.ErrorMessage.Value(hclCtx)
+	} else if validation.WarningMessage != nil {
+		errorValue, errorDiags = validation.WarningMessage.Value(hclCtx)
+	}
 
 	// The following error handling is a workaround to preserve backwards
 	// compatibility. Due to an implementation quirk, all prior versions of
@@ -498,8 +505,15 @@ You can correct this by removing references to ephemeral values, or by carefully
 		errorMessage = "Failed to evaluate condition error message."
 	}
 
+	var severity hcl.DiagnosticSeverity
+	if validation.ErrorMessage != nil {
+		severity = hcl.DiagError
+	} else if validation.WarningMessage != nil {
+		severity = hcl.DiagWarning
+	}
+
 	diags = diags.Append(&hcl.Diagnostic{
-		Severity:    hcl.DiagError,
+		Severity:    severity,
 		Summary:     errInvalidValue,
 		Detail:      fmt.Sprintf("%s\n\nThis was checked by the validation rule at %s.", errorMessage, validation.DeclRange.String()),
 		Subject:     valueRng.Ptr(),
