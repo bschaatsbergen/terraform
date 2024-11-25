@@ -367,6 +367,8 @@ func referencesForOutput(c *configs.Output) []*addrs.Reference {
 		refs = append(refs, condRefs...)
 		errRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, check.ErrorMessage)
 		refs = append(refs, errRefs...)
+		warnRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, check.WarningMessage)
+		refs = append(refs, warnRefs...)
 	}
 
 	return refs

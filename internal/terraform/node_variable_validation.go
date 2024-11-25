@@ -84,9 +84,11 @@ func (n *nodeVariableValidation) References() []*addrs.Reference {
 		// invalid references then we'll catch them once we visit the
 		// node (method Execute).
 		condRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, rule.Condition)
-		msgRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+		errRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, rule.ErrorMessage)
+		warnRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, rule.WarningMessage)
 		ret = n.appendRefsFilterSelf(ret, condRefs...)
-		ret = n.appendRefsFilterSelf(ret, msgRefs...)
+		ret = n.appendRefsFilterSelf(ret, errRefs...)
+		ret = n.appendRefsFilterSelf(ret, warnRefs...)
 	}
 	return ret
 }

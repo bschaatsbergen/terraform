@@ -106,9 +106,11 @@ func (n *nodeExpandCheck) References() []*addrs.Reference {
 		// Check blocks reference anything referenced by conditions or messages
 		// in their check rules.
 		condition, _ := langrefs.ReferencesInExpr(addrs.ParseRef, assert.Condition)
-		message, _ := langrefs.ReferencesInExpr(addrs.ParseRef, assert.ErrorMessage)
+		errRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, assert.ErrorMessage)
+		warnRefs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, assert.WarningMessage)
 		refs = append(refs, condition...)
-		refs = append(refs, message...)
+		refs = append(refs, errRefs...)
+		refs = append(refs, warnRefs...)
 	}
 	if n.config.DataResource != nil {
 		// We'll also always reference our nested data block if it exists, as

@@ -223,11 +223,15 @@ func (n *NodeAbstractResource) References() []*addrs.Reference {
 			result = append(result, refs...)
 			refs, _ = langrefs.ReferencesInExpr(addrs.ParseRef, check.ErrorMessage)
 			result = append(result, refs...)
+			refs, _ = langrefs.ReferencesInExpr(addrs.ParseRef, check.WarningMessage)
+			result = append(result, refs...)
 		}
 		for _, check := range c.Postconditions {
 			refs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, check.Condition)
 			result = append(result, refs...)
 			refs, _ = langrefs.ReferencesInExpr(addrs.ParseRef, check.ErrorMessage)
+			result = append(result, refs...)
+			refs, _ = langrefs.ReferencesInExpr(addrs.ParseRef, check.WarningMessage)
 			result = append(result, refs...)
 		}
 	}
