@@ -98,3 +98,87 @@ You can correct this by removing references to ephemeral values, or by using the
 
 	return strings.TrimSpace(val.AsString()), diags
 }
+
+func EvalCheckWarningMessage(expr hcl.Expression, hclCtx *hcl.EvalContext, ruleAddr *addrs.CheckRule) (string, tfdiags.Diagnostics) {
+	var diags tfdiags.Diagnostics
+
+	val, hclDiags := expr.Value(hclCtx)
+	if hclDiags.HasErrors() {
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Invalid warning message",
+			Detail:      "Unsuitable value for warning message: must not contain errors.",
+			Subject:     expr.Range().Ptr(),
+			Expression:  expr,
+			EvalContext: hclCtx,
+		})
+		return "", diags
+	}
+
+	val, err := convert.Convert(val, cty.String)
+	if err != nil {
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Invalid warning message",
+			Detail:      fmt.Sprintf("Unsuitable value for warning message: %s.", tfdiags.FormatError(err)),
+			Subject:     expr.Range().Ptr(),
+			Expression:  expr,
+			EvalContext: hclCtx,
+		})
+		return "", diags
+	}
+	if !val.IsKnown() {
+		return "", diags
+	}
+	if val.IsNull() {
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity:    hcl.DiagError,
+			Summary:     "Invalid warning message",
+			Detail:      "Unsuitable value for warning message: must not be null.",
+			Subject:     expr.Range().Ptr(),
+			Expression:  expr,
+			EvalContext: hclCtx,
+		})
+		return "", diags
+	}
+
+	val, valMarks := val.Unmark()
+	if _, sensitive := valMarks[marks.Sensitive]; sensitive {
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity: hcl.DiagWarning,
+			Summary:  "Warning message refers to sensitive values",
+			Detail: `The warning expression used to explain this condition refers to sensitive values, so Terraform will not display the resulting message.
+
+You can correct this by removing references to sensitive values, or by carefully using the nonsensitive() function if the expression will not reveal the sensitive data.`,
+			Subject:     expr.Range().Ptr(),
+			Expression:  expr,
+			EvalContext: hclCtx,
+		})
+		return "", diags
+	}
+
+	if _, ephemeral := valMarks[marks.Ephemeral]; ephemeral {
+		var extra interface{}
+		if ruleAddr != nil {
+			extra = &addrs.CheckRuleDiagnosticExtra{
+				CheckRule: *ruleAddr,
+			}
+		}
+
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity: hcl.DiagWarning,
+			Summary:  "Warning message refers to ephemeral values",
+			Detail: `The warning expression used to explain this condition refers to ephemeral values, so Terraform will not display the resulting message.
+
+You can correct this by removing references to ephemeral values, or by using the ephemeralasnull() function on the references to not reveal ephemeral data.`,
+			Subject: expr.Range().Ptr(),
+			Extra:   extra,
+		})
+		return "", diags
+	}
+
+	// NOTE: We've discarded any other marks the string might have been carrying,
+	// aside from the sensitive mark.
+
+	return strings.TrimSpace(val.AsString()), diags
+}
