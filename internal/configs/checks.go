@@ -37,6 +37,16 @@ type CheckRule struct {
 	// interpolation as the corresponding condition.
 	ErrorMessage hcl.Expression
 
+	// WarningMessage should be one or more full sentences, which should be in
+	// English for consistency with the rest of the warning message output but
+	// can in practice be in any language. The message should explain what is
+	// concerning about the current evaluation of the condition, offering
+	// context that is actionable to the module user.
+	//
+	// The warning message expression has the same variables available for
+	// interpolation as the corresponding condition.
+	WarningMessage hcl.Expression
+
 	DeclRange hcl.Range
 }
 
@@ -80,6 +90,23 @@ func (cr *CheckRule) validateSelfReferences(checkType string, addr addrs.Resourc
 	return diags
 }
 
+var checkRuleBlockSchema = &hcl.BodySchema{
+	Attributes: []hcl.AttributeSchema{
+		{
+			Name:     "condition",
+			Required: true,
+		},
+		{
+			Name:     "error_message",
+			Required: false,
+		},
+		{
+			Name:     "warning_message",
+			Required: false,
+		},
+	},
+}
+
 // decodeCheckRuleBlock decodes the contents of the given block as a check rule.
 //
 // Unlike most of our "decode..." functions, this one can be applied to blocks
@@ -110,6 +137,26 @@ func decodeCheckRuleBlock(block *hcl.Block, override bool) (*CheckRule, hcl.Diag
 	content, moreDiags := block.Body.Content(checkRuleBlockSchema)
 	diags = append(diags, moreDiags...)
 
+	// Make sure that the check rule has either "error_message" or "warning_message," but not both.
+	hasError := content.Attributes["error_message"]
+	hasWarning := content.Attributes["warning_message"]
+	if hasError != nil && hasWarning != nil {
+		diags = diags.Append(&hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  fmt.Sprintf("Invalid %s block", block.Type),
+			Detail:   "A check rule can have either \"error_message\" or \"warning_message,\" but not both.",
+			Subject:  cr.DeclRange.Ptr(),
+		})
+	}
+
+	// Set the appropriate message diagnostic if one is present.
+	// Only one message can be set, this is checked above.
+	if hasError != nil {
+		cr.ErrorMessage = hasError.Expr
+	} else if hasWarning != nil {
+		cr.WarningMessage = hasWarning.Expr
+	}
+
 	if attr, exists := content.Attributes["condition"]; exists {
 		cr.Condition = attr.Expr
 
@@ -125,24 +172,7 @@ func decodeCheckRuleBlock(block *hcl.Block, override bool) (*CheckRule, hcl.Diag
 		}
 	}
 
-	if attr, exists := content.Attributes["error_message"]; exists {
-		cr.ErrorMessage = attr.Expr
-	}
-
 	return cr, diags
-}
-
-var checkRuleBlockSchema = &hcl.BodySchema{
-	Attributes: []hcl.AttributeSchema{
-		{
-			Name:     "condition",
-			Required: true,
-		},
-		{
-			Name:     "error_message",
-			Required: true,
-		},
-	},
 }
 
 // Check represents a configuration defined check block.
