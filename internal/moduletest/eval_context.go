@@ -109,8 +109,19 @@ func (ec *EvalContext) Evaluate() (Status, cty.Value, tfdiags.Diagnostics) {
 			continue
 		}
 
-		errorMessage, moreDiags := lang.EvalCheckErrorMessage(rule.ErrorMessage, hclCtx, nil)
-		ruleDiags = ruleDiags.Append(moreDiags)
+		var checkRuleMessage string
+		var checkRuleSeverity hcl.DiagnosticSeverity
+		if rule.ErrorMessage != nil {
+			errorMessage, moreDiags := lang.EvalCheckErrorMessage(rule.ErrorMessage, hclCtx, nil)
+			diags = diags.Append(moreDiags)
+			checkRuleMessage = errorMessage
+			checkRuleSeverity = hcl.DiagError
+		} else if rule.WarningMessage != nil {
+			warningMessage, moreDiags := lang.EvalCheckWarningMessage(rule.WarningMessage, hclCtx, nil)
+			diags = diags.Append(moreDiags)
+			checkRuleMessage = warningMessage
+			checkRuleSeverity = hcl.DiagWarning
+		}
 
 		runVal, hclDiags := rule.Condition.Value(hclCtx)
 		ruleDiags = ruleDiags.Append(hclDiags)
@@ -173,9 +184,9 @@ func (ec *EvalContext) Evaluate() (Status, cty.Value, tfdiags.Diagnostics) {
 			log.Printf("[TRACE] EvalContext.Evaluate: test assertion failed for %s assertion %d", ec.run.Addr(), i)
 			status = status.Merge(Fail)
 			diags = diags.Append(&hcl.Diagnostic{
-				Severity:    hcl.DiagError,
+				Severity:    checkRuleSeverity,
 				Summary:     "Test assertion failed",
-				Detail:      errorMessage,
+				Detail:      checkRuleMessage,
 				Subject:     rule.Condition.Range().Ptr(),
 				Expression:  rule.Condition,
 				EvalContext: hclCtx,
