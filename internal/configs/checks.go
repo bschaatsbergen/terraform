@@ -149,8 +149,6 @@ func decodeCheckRuleBlock(block *hcl.Block, override bool) (*CheckRule, hcl.Diag
 		})
 	}
 
-	// Set the appropriate message diagnostic if one is present.
-	// Only one message can be set, this is checked above.
 	if hasError != nil {
 		cr.ErrorMessage = hasError.Expr
 	} else if hasWarning != nil {
