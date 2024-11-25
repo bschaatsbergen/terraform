@@ -124,6 +124,13 @@ func (run *Run) GetReferences() ([]*addrs.Reference, tfdiags.Diagnostics) {
 				references = append(references, reference)
 			}
 		}
+		for _, variable := range rule.WarningMessage.Variables() {
+			reference, diags := addrs.ParseRef(variable)
+			diagnostics = diagnostics.Append(diags)
+			if reference != nil {
+				references = append(references, reference)
+			}
+		}
 	}
 
 	return references, diagnostics

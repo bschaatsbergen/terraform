@@ -88,9 +88,12 @@ func (ec *EvalContext) Evaluate() (Status, cty.Value, tfdiags.Diagnostics) {
 
 		refs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRefFromTestingScope, rule.Condition)
 		ruleDiags = ruleDiags.Append(moreDiags)
-		moreRefs, moreDiags := langrefs.ReferencesInExpr(addrs.ParseRefFromTestingScope, rule.ErrorMessage)
-		ruleDiags = ruleDiags.Append(moreDiags)
-		refs = append(refs, moreRefs...)
+		errRefs, errDiags := langrefs.ReferencesInExpr(addrs.ParseRefFromTestingScope, rule.ErrorMessage)
+		ruleDiags = ruleDiags.Append(errDiags)
+		refs = append(refs, errRefs...)
+		warnRefs, warnDiags := langrefs.ReferencesInExpr(addrs.ParseRefFromTestingScope, rule.WarningMessage)
+		ruleDiags = ruleDiags.Append(warnDiags)
+		refs = append(refs, warnRefs...)
 
 		// We want to emit diagnostics if users are using ephemeral resources in their checks
 		// as they are not supported since they are closed before this is evaluated.
