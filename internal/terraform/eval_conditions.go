@@ -206,7 +206,7 @@ func evalCheckRule(addr addrs.CheckRule, rule *configs.CheckRule, ctx EvalContex
 	// might be treated as warnings instead, depending on the severity passed into this function.
 	if severity == hcl.DiagError {
 		// However, to respect the severity of the check rule configured by the user,
-		// we can downgrade the diagnostic severity if the check rule severity is a warning.
+		// we downgrade the diagnostic severity if the check rule severity is a warning.
 		if checkRuleSeverity == hcl.DiagWarning {
 			severity = hcl.DiagWarning
 		}
